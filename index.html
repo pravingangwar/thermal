@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Graphite vs Copper Heat Spreader — Axisymmetric Thermal FDM Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:       #f5f6f8;
+    --bg2:      #eef0f4;
+    --bg3:      #e4e7ed;
+    --border:   #d0d5de;
+    --border2:  #b8bfcc;
+    --accent:   #0077cc;
+    --accent2:  #1a8c00;
+    --accent3:  #d45f00;
+    --warn:     #c0392b;
+    --text:     #1a2030;
+    --muted:    #5a6478;
+    --card:     #ffffff;
+    --gr-color: #0077cc;
+    --cu-color: #d45f00;
+    --efd-gr:   #1a8c00;
+    --efd-cu:   #8b0099;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-weight: 300;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* subtle grid */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(0,100,200,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,100,200,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(245,246,248,0.94);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2rem;
+    height: 56px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .nav-brand {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+  .nav-links { display: flex; gap: 1.6rem; }
+  .nav-links a {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--accent); }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1080px; margin: 0 auto; padding: 0 2rem; position: relative; z-index: 1; }
+  section { padding: 5rem 0; border-bottom: 1px solid var(--border); }
+  section:last-of-type { border-bottom: none; }
+
+  /* ── HERO ── */
+  #hero { padding: 6rem 0 4.5rem; border-bottom: 1px solid var(--border); }
+  .hero-tag {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border: 1px solid rgba(0,119,204,0.35);
+    background: rgba(0,119,204,0.06);
+    padding: 0.25rem 0.75rem;
+    border-radius: 3px;
+    margin-bottom: 1.4rem;
+  }
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin-bottom: 1.1rem;
+  }
+  h1 span { color: var(--accent); }
+  .hero-sub {
+    font-size: 1rem;
+    color: var(--muted);
+    max-width: 620px;
+    margin-bottom: 2.2rem;
+    line-height: 1.8;
+  }
+
+  .hero-metrics { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-bottom: 2.2rem; }
+  .metric {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.9rem 1.3rem;
+    min-width: 130px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .metric-val {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 0.3rem;
+  }
+  .metric-val.warn   { color: var(--warn); }
+  .metric-val.green  { color: var(--accent2); }
+  .metric-val.orange { color: var(--accent3); }
+  .metric-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; }
+
+  .btn-row { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    padding: 0.55rem 1.1rem;
+    border-radius: 4px;
+    text-decoration: none;
+    transition: all 0.18s;
+    cursor: pointer;
+  }
+  .btn-primary { background: var(--accent); color: #fff; border: 1px solid var(--accent); }
+  .btn-primary:hover { background: #005fa3; border-color: #005fa3; }
+  .btn-ghost { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── SECTION HEADERS ── */
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.66rem;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(1.35rem, 3vw, 1.9rem);
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.9rem;
+    letter-spacing: -0.01em;
+  }
+  h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.55rem;
+  }
+  p { color: var(--text); font-size: 0.93rem; margin-bottom: 0.85rem; }
+  p:last-child { margin-bottom: 0; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  /* ── GEOMETRY ── */
+  .geo-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 2rem;
+    align-items: start;
+  }
+  @media (max-width: 700px) { .geo-wrap { grid-template-columns: 1fr; } }
+
+  .layer-stack { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+  .layer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.52rem 1rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.76rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+  .layer:last-child { border-bottom: none; }
+  .layer:hover { background: rgba(0,119,204,0.04); }
+  .layer-name { color: var(--text); font-weight: 600; }
+  .layer-k    { color: var(--muted); }
+  .layer-t    { color: var(--accent); font-weight: 600; }
+  .layer.hdr  { background: var(--bg2); color: var(--muted); font-size: 0.66rem; letter-spacing: 0.06em; }
+  .layer.tim  { background: rgba(196,30,0,0.05); }
+  .layer.gr   { background: rgba(0,119,204,0.05); }
+  .layer.adh  { background: rgba(26,140,0,0.05); }
+  .layer.gl   { background: rgba(100,60,200,0.05); }
+  .layer.void { background: var(--bg2); color: var(--muted); font-style: italic; }
+
+  .param-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; margin-top: 1rem; }
+  .param-table th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0.45rem 0.8rem;
+    text-align: left;
+    border-bottom: 2px solid var(--border);
+    background: var(--bg2);
+  }
+  .param-table td {
+    padding: 0.45rem 0.8rem;
+    border-bottom: 1px solid var(--bg3);
+  }
+  .param-table tr:last-child td { border-bottom: none; }
+  .param-table td:first-child { color: var(--text); }
+  .param-table td:last-child {
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--accent);
+    text-align: right;
+  }
+  .param-table td.sym { color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 0.76rem; }
+
+  /* ── CHART ── */
+  .chart-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+  }
+  .chart-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+  .chart-container { position: relative; height: 380px; }
+  .legend-row {
+    display: flex; flex-wrap: wrap; gap: 1.2rem;
+    margin-top: 1rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+  .legend-item { display: flex; align-items: center; gap: 0.4rem; }
+  .legend-dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .legend-sq   { width: 12px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ── VALIDATION TABLE ── */
+  .val-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; margin-top: 1.5rem; }
+  .val-table th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0.6rem 1rem;
+    text-align: left;
+    border-bottom: 2px solid var(--border);
+    background: var(--bg2);
+  }
+  .val-table td { padding: 0.65rem 1rem; border-bottom: 1px solid var(--bg3); }
+  .val-table tr:hover td { background: rgba(0,119,204,0.03); }
+  .val-table td.num { font-family: 'IBM Plex Mono', monospace; text-align: right; }
+  .val-table td.ok  { color: var(--accent2); font-weight: 600; }
+  .badge {
+    display: inline-block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.63rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+  .badge-green { background: rgba(26,140,0,0.1); color: var(--accent2); border: 1px solid rgba(26,140,0,0.3); }
+  .badge-blue  { background: rgba(0,119,204,0.1); color: var(--accent);  border: 1px solid rgba(0,119,204,0.3); }
+
+  /* ── CODE BLOCK ── */
+  pre {
+    background: #1e2433;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.1rem 1.3rem;
+    overflow-x: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.76rem;
+    line-height: 1.7;
+    color: #c8d3e8;
+    margin: 1rem 0;
+  }
+  pre .cm  { color: #6e8aaa; font-style: italic; }
+  pre .var { color: #79d4f1; }
+
+  /* ── ENERGY BALANCE ── */
+  .energy-row {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 0.7rem 0.8rem;
+    border-radius: 4px;
+    margin-bottom: 0.4rem;
+  }
+  .energy-label    { flex: 1; font-size: 0.84rem; color: var(--text); }
+  .energy-bar-wrap { flex: 2; height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+  .energy-bar      { height: 100%; border-radius: 4px; }
+  .energy-val      { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; color: var(--accent); min-width: 90px; text-align: right; }
+
+  /* ── DOWNLOAD BAR ── */
+  .dl-bar {
+    display: flex; flex-wrap: wrap; gap: 0.8rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.9rem 1.3rem;
+    margin-top: 1rem;
+    align-items: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .dl-bar-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.76rem; color: var(--muted); margin-right: auto; }
+
+  /* ── FOOTER ── */
+  footer {
+    padding: 2.5rem 0;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    position: relative; z-index: 1;
+    background: var(--bg2);
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 600px) {
+    .nav-links { display: none; }
+    h1 { font-size: 1.8rem; }
+    .geo-wrap { grid-template-columns: 1fr; }
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .fade-up { animation: fadeUp 0.55s ease both; }
+  .fade-up:nth-child(2) { animation-delay: 0.08s; }
+  .fade-up:nth-child(3) { animation-delay: 0.16s; }
+  .fade-up:nth-child(4) { animation-delay: 0.24s; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="nav-brand">// GRAPHITE vs COPPER — HEAT SPREADER STUDY</span>
+  <div class="nav-links">
+    <a href="#summary">Summary</a>
+    <a href="#geometry">Stack</a>
+    <a href="#methodology">Method</a>
+    <a href="#results">Results</a>
+    <a href="#validation">Validation</a>
+    <a href="#downloads">Downloads</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="container">
+    <div class="hero-tag fade-up">Thermal Engineering Study · Graphite vs Copper Heat Spreader</div>
+    <h1 class="fade-up">Graphite vs Copper<br /><span>Heat Spreader Comparison</span></h1>
+    <p class="hero-sub fade-up">
+      A 2D axisymmetric finite difference model (FDM) comparing graphite and copper heat
+      spreaders across a wide thickness range (0.01–5 mm). Solved via conduction with
+      natural convection and radiation boundary conditions on the glass back surface.
+      Results cross-checked against Siemens FLOEFD thermal simulation at three
+      representative thickness points.
+    </p>
+
+    <div class="btn-row fade-up">
+      <a href="#results" class="btn btn-primary">View Results</a>
+      <a href="#validation" class="btn btn-ghost">Validation Data</a>
+      <a href="thermal_fdm_axisymmetric_Gr.py" download class="btn btn-ghost">Download Gr Script</a>
+      <a href="thermal_fdm_axisymmetric_Cu.py" download class="btn btn-ghost">Download Cu Script</a>
+      <a href="Heat_Spreader.xlsx" download class="btn btn-ghost">Download Data</a>
+    </div>
+  </div>
+</section>
+
+<!-- EXECUTIVE SUMMARY -->
+<section id="summary">
+  <div class="container">
+    <div class="section-label">01 — Executive Summary</div>
+    <h2>Study Overview</h2>
+    <div class="card-grid">
+      <div class="card">
+        <h3>Objective</h3>
+        <p>Compare peak junction temperature of graphite and copper heat spreaders across
+        a thickness sweep (0.01–5 mm) using a custom Python FDM solver. Identify the
+        crossover point and the thickness of diminishing thermal returns for each material.</p>
+      </div>
+      <div class="card">
+        <h3>Configuration</h3>
+        <p>A 6 W heat source (5 mm radius) dissipates through a TIM → spreader →
+        Adhesive → Glass stack. Graphite is highly anisotropic
+        (k<sub>r</sub> = 1500, k<sub>z</sub> = 2 W/m·K); Copper is isotropic
+        (k = 400 W/m·K). TIM footprint matches the source footprint only (r ≤ 5 mm).
+        Cooling by natural convection (h = 10 W/m²K) and radiation (ε = 0.9) on glass back surface only.</p>
+      </div>
+      <div class="card">
+        <h3>Key Finding</h3>
+        <p>Graphite significantly outperforms Copper below ~0.75 mm due to its 1500 W/m·K
+        in-plane conductivity. The curves converge near 0.75 mm and invert beyond 1 mm
+        where Copper's isotropic conductivity becomes an advantage. Above 0.4 mm both
+        materials plateau — glass layer resistance dominates.</p>
+      </div>
+      <div class="card">
+        <h3>Cross-Check</h3>
+        <p>FDM results are cross-checked against Siemens FLOEFD thermal simulation
+        at t = 0.1, 0.4, and 1.0 mm for both materials. Peak temperature agreement
+        within 1–2% on a ΔT above ambient basis at the validated operating point.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- GEOMETRY -->
+<section id="geometry">
+  <div class="container">
+    <div class="section-label">02 — Geometry &amp; Material Stack</div>
+    <h2>Thermal Stack Definition</h2>
+    <p>Single unified r-z grid covering 0 ≤ r ≤ R<sub>gl</sub> = 50 mm,
+    0 ≤ z ≤ H = 1.3 mm. TIM footprint is restricted to the source radius (r &lt; 5 mm);
+    the region r ≥ 5 mm at the TIM z-level is treated as air. For r &gt; R<sub>sp</sub>
+    below the glass base, void nodes represent the air gap (adiabatic bottom BC).</p>
+
+    <!-- SVG SCHEMATIC -->
+    <div style="margin-top:2rem;margin-bottom:2rem">
+      <svg viewBox="0 0 860 340" xmlns="http://www.w3.org/2000/svg"
+           style="width:100%;max-width:860px;display:block;background:#f8f9fb;border:1px solid #d0d5de;border-radius:8px;font-family:'IBM Plex Mono',monospace;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <defs>
+          <marker id="arr"      markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><polygon points="0 0,7 3.5,0 7" fill="#8899aa"/></marker>
+          <marker id="arr-bl"   markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><polygon points="0 0,7 3.5,0 7" fill="#0077cc"/></marker>
+          <marker id="arr-red"  markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><polygon points="0 0,7 3.5,0 7" fill="#c0392b"/></marker>
+          <radialGradient id="srcGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stop-color="#c0392b" stop-opacity="0.4"/>
+            <stop offset="100%" stop-color="#c0392b" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+
+        <!-- axis labels -->
+        <text x="28" y="20" font-size="9" fill="#8899aa" letter-spacing="1">r →</text>
+        <text x="8"  y="200" font-size="9" fill="#8899aa" letter-spacing="1" transform="rotate(-90,8,200)">z ↑</text>
+
+        <!-- symmetry axis -->
+        <line x1="90" y1="30" x2="90" y2="295" stroke="#aab" stroke-width="1" stroke-dasharray="4,3"/>
+        <text x="92" y="26" font-size="8" fill="#8899aa">r = 0</text>
+
+        <!-- GLASS (z: 50–238, r: 90–470 full width) -->
+        <rect x="90" y="50" width="380" height="188" fill="rgba(100,60,200,0.10)" stroke="#7c4fcc" stroke-width="1.2"/>
+
+        <!-- ADHESIVE (z: 238–257, r: 90–390) -->
+        <rect x="90" y="238" width="300" height="19" fill="rgba(26,140,0,0.10)" stroke="#1a8c00" stroke-width="1.2"/>
+
+        <!-- SPREADER (z: 257–276, r: 90–390) -->
+        <rect x="90" y="257" width="300" height="19" fill="rgba(0,119,204,0.15)" stroke="#0077cc" stroke-width="1.8"/>
+
+        <!-- TIM (z: 276–295, r: 90–130 = source only, 5mm/37.5mm * 300px = 40px) -->
+        <rect x="90" y="276" width="40" height="19" fill="rgba(192,57,43,0.18)" stroke="#c0392b" stroke-width="1.5"/>
+
+        <!-- INNER VOID beside TIM (z: 276–295, r: 130–390) -->
+        <rect x="130" y="276" width="260" height="19" fill="rgba(160,170,190,0.18)" stroke="#aab" stroke-width="0.8" stroke-dasharray="3,2"/>
+
+        <!-- OUTER VOID (r: 390–470, z: 238–295) -->
+        <rect x="390" y="238" width="80" height="57" fill="rgba(160,170,190,0.12)" stroke="#aab" stroke-width="0.8" stroke-dasharray="3,2"/>
+
+        <!-- heat source glow -->
+        <rect x="90" y="276" width="40" height="19" fill="url(#srcGlow)" rx="1"/>
+        <ellipse cx="110" cy="295" rx="22" ry="5" fill="rgba(192,57,43,0.25)"/>
+
+        <!-- LAYER LABELS -->
+        <text x="250" y="122" text-anchor="middle" font-size="11" font-weight="600" fill="#5a3baa">GLASS</text>
+        <text x="250" y="137" text-anchor="middle" font-size="9"  fill="#7c4fcc">k = 1.0 W/m·K  |  t = 1.0 mm</text>
+
+        <text x="230" y="251" text-anchor="middle" font-size="10" font-weight="600" fill="#1a8c00">ADHESIVE</text>
+        <text x="230" y="261" text-anchor="middle" font-size="8"  fill="#1a8c00" opacity="0.8">k = 3 W/m·K  |  t = 0.1 mm</text>
+
+        <text x="230" y="269" text-anchor="middle" font-size="10" font-weight="600" fill="#0055aa">SPREADER (Gr / Cu)</text>
+        <text x="230" y="279" text-anchor="middle" font-size="8"  fill="#0077cc" opacity="0.85">Gr: k_r=1500, k_z=2  |  Cu: k=400  W/m·K</text>
+
+        <text x="110" y="287" text-anchor="middle" font-size="9" font-weight="600" fill="#c0392b">TIM</text>
+        <text x="260" y="287" text-anchor="middle" font-size="8" fill="#8899aa" font-style="italic">air (inner void)</text>
+        <text x="430" y="265" text-anchor="middle" font-size="8" fill="#8899aa" font-style="italic">air</text>
+        <text x="430" y="275" text-anchor="middle" font-size="8" fill="#8899aa" font-style="italic">(void)</text>
+
+        <!-- heat source label -->
+        <text x="110" y="310" text-anchor="middle" font-size="9" fill="#c0392b" font-weight="600">Q = 6W</text>
+        <text x="110" y="321" text-anchor="middle" font-size="8" fill="#c0392b">r = 5mm</text>
+
+        <!-- DIMENSION LINES -->
+        <line x1="90"  y1="308" x2="128" y2="308" stroke="#c0392b" stroke-width="0.8" marker-end="url(#arr-red)"/>
+        <line x1="130" y1="308" x2="92"  y2="308" stroke="#c0392b" stroke-width="0.8" marker-end="url(#arr-red)"/>
+        <text x="110"  y="319" text-anchor="middle" font-size="8" fill="#c0392b">r_src = 5 mm</text>
+
+        <line x1="90"  y1="330" x2="388" y2="330" stroke="#8899aa" stroke-width="0.8" marker-end="url(#arr)"/>
+        <line x1="390" y1="330" x2="92"  y2="330" stroke="#8899aa" stroke-width="0.8" marker-end="url(#arr)"/>
+        <text x="240"  y="341" text-anchor="middle" font-size="9" fill="#8899aa">R_sp = 37.5 mm</text>
+
+        <!-- R_sp tick -->
+        <line x1="390" y1="238" x2="390" y2="295" stroke="#e6a800" stroke-width="0.9" stroke-dasharray="3,2"/>
+        <text x="393" y="235" font-size="8" fill="#e6a800">R_sp</text>
+
+        <!-- R_gl tick -->
+        <line x1="470" y1="50" x2="470" y2="295" stroke="#aab" stroke-width="0.8" stroke-dasharray="3,2"/>
+        <text x="472" y="48" font-size="8" fill="#aab">R_gl</text>
+
+        <!-- BC arrows — conv+rad upward from glass top -->
+        <line x1="150" y1="50" x2="150" y2="24" stroke="#d45f00" stroke-width="1.5" marker-end="url(#arr-bl)" stroke-dasharray="4,2"/>
+        <line x1="230" y1="50" x2="230" y2="24" stroke="#d45f00" stroke-width="1.5" marker-end="url(#arr-bl)" stroke-dasharray="4,2"/>
+        <line x1="310" y1="50" x2="310" y2="24" stroke="#d45f00" stroke-width="1.5" marker-end="url(#arr-bl)" stroke-dasharray="4,2"/>
+        <line x1="390" y1="50" x2="390" y2="24" stroke="#d45f00" stroke-width="1.2" marker-end="url(#arr-bl)" stroke-dasharray="4,2"/>
+        <line x1="440" y1="50" x2="440" y2="24" stroke="#d45f00" stroke-width="1.0" marker-end="url(#arr-bl)" stroke-dasharray="4,2"/>
+        <text x="540" y="18" font-size="9" fill="#d45f00">h·(T−T∞) + σε(T⁴−T∞⁴)</text>
+        <text x="540" y="29" font-size="8" fill="#8899aa">conv + radiation — glass back only</text>
+
+        <!-- heat source arrow -->
+        <line x1="110" y1="338" x2="110" y2="298" stroke="#c0392b" stroke-width="2" marker-end="url(#arr-red)"/>
+
+        <!-- side panel -->
+        <rect x="540" y="50" width="295" height="185" rx="5" fill="#ffffff" stroke="#d0d5de" stroke-width="1"/>
+        <text x="556" y="70" font-size="10" font-weight="600" fill="#1a2030">Spreader Material Comparison</text>
+
+        <rect x="556" y="82"  width="10" height="10" fill="rgba(0,119,204,0.3)" stroke="#0077cc" stroke-width="1.2"/>
+        <text x="573" y="91"  font-size="9" fill="#0055aa" font-weight="600">Graphite (anisotropic)</text>
+        <text x="573" y="103" font-size="8" fill="#5a6478">k_r = 1500 W/m·K  (in-plane)</text>
+        <text x="573" y="114" font-size="8" fill="#5a6478">k_z = 2 W/m·K      (through-plane)</text>
+        <text x="573" y="125" font-size="8" fill="#5a6478">Excellent lateral spreading</text>
+
+        <rect x="556" y="137" width="10" height="10" fill="rgba(212,95,0,0.25)" stroke="#d45f00" stroke-width="1.2"/>
+        <text x="573" y="147" font-size="9" fill="#a04000" font-weight="600">Copper (isotropic)</text>
+        <text x="573" y="159" font-size="8" fill="#5a6478">k = 400 W/m·K  (all directions)</text>
+        <text x="573" y="170" font-size="8" fill="#5a6478">Balanced spread + conduction</text>
+        <text x="573" y="181" font-size="8" fill="#5a6478">Better beyond ~0.75 mm</text>
+
+        <text x="556" y="205" font-size="8" fill="#5a6478">Crossover ≈ 0.75 mm  |  Plateau above 0.4 mm</text>
+        <text x="556" y="216" font-size="8" fill="#5a6478">Glass layer (k=1 W/m·K) is bottleneck</text>
+
+        <!-- BC notes -->
+        <text x="540" y="258" font-size="9" fill="#8899aa">r = R_gl : adiabatic</text>
+        <text x="540" y="270" font-size="9" fill="#8899aa">r = 0    : symmetry axis</text>
+        <text x="540" y="282" font-size="9" fill="#8899aa">z = 0, r ≥ r_src : adiabatic</text>
+        <text x="540" y="294" font-size="9" fill="#c0392b">z = 0, r &lt; r_src : q = Q/A</text>
+      </svg>
+    </div>
+
+    <div class="geo-wrap">
+      <div>
+        <h3 style="margin-bottom:0.8rem">Material Stack (r &lt; 5 mm axis)</h3>
+        <div class="layer-stack">
+          <div class="layer hdr">
+            <span>Layer</span><span>k [W/m·K]</span><span>t [mm]</span>
+          </div>
+          <div class="layer gl">
+            <span class="layer-name">Glass (GL)</span>
+            <span class="layer-k">k = 1.0 (iso)</span>
+            <span class="layer-t">1.00 mm</span>
+          </div>
+          <div class="layer adh">
+            <span class="layer-name">Adhesive</span>
+            <span class="layer-k">k = 3.0 (iso)</span>
+            <span class="layer-t">0.10 mm</span>
+          </div>
+          <div class="layer gr">
+            <span class="layer-name">Spreader (Gr/Cu)</span>
+            <span class="layer-k">Gr: k<sub>r</sub>=1500/k<sub>z</sub>=2 | Cu: 400</span>
+            <span class="layer-t">variable</span>
+          </div>
+          <div class="layer tim">
+            <span class="layer-name">TIM</span>
+            <span class="layer-k">k = 3.0 (iso)</span>
+            <span class="layer-t">0.10 mm</span>
+          </div>
+          <div class="layer tim" style="background:rgba(192,57,43,0.12)">
+            <span class="layer-name" style="color:var(--warn)">Heat Source</span>
+            <span class="layer-k" style="color:var(--muted)">Q = 6 W, r &lt; 5 mm</span>
+            <span class="layer-t" style="color:var(--warn)">z = 0</span>
+          </div>
+          <div class="layer void">
+            <span class="layer-name">Inner void (air)</span>
+            <span class="layer-k">k = 0.026  r≥5mm, z≤t_TIM</span>
+            <span class="layer-t">—</span>
+          </div>
+          <div class="layer void">
+            <span class="layer-name">Outer void (air)</span>
+            <span class="layer-k">k = 0.026  r&gt;37.5mm</span>
+            <span class="layer-t">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 style="margin-bottom:0.8rem">Model Parameters</h3>
+        <table class="param-table">
+          <tr><th>Parameter</th><th>Symbol</th><th>Value</th></tr>
+          <tr><td>Input power</td><td class="sym">Q</td><td>6 W</td></tr>
+          <tr><td>Source radius</td><td class="sym">r<sub>src</sub></td><td>5 mm</td></tr>
+          <tr><td>Spreader radius</td><td class="sym">R<sub>sp</sub></td><td>37.5 mm</td></tr>
+          <tr><td>Glass radius</td><td class="sym">R<sub>gl</sub></td><td>50 mm</td></tr>
+          <tr><td>Ambient temp</td><td class="sym">T<sub>amb</sub></td><td>25 °C</td></tr>
+          <tr><td>Conv. coefficient</td><td class="sym">h</td><td>10 W/m²K</td></tr>
+          <tr><td>Emissivity</td><td class="sym">ε</td><td>0.9</td></tr>
+          <tr><td>Radial nodes (Nr)</td><td class="sym">—</td><td>~1500</td></tr>
+          <tr><td>Axial nodes (Nz)</td><td class="sym">—</td><td>~60</td></tr>
+          <tr><td>Newton tolerance</td><td class="sym">δT</td><td>10⁻⁴ °C</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- METHODOLOGY -->
+<section id="methodology">
+  <div class="container">
+    <div class="section-label">03 — Numerical Methodology</div>
+    <h2>FDM Solver Architecture</h2>
+    <div class="card-grid">
+      <div class="card">
+        <h3>Discretisation</h3>
+        <p>Cylindrical coordinates (r, z). Interior nodes use a finite volume formulation
+        with harmonic-mean interface conductivities to handle material discontinuities.
+        Axis symmetry at r = 0 is enforced via a L'Hôpital limit giving
+        <code style="font-family:'IBM Plex Mono',monospace;color:var(--accent);font-size:0.78rem">c_rp = 2k/Δr²</code>.</p>
+      </div>
+      <div class="card">
+        <h3>Nonlinear Radiation BC</h3>
+        <p>Top surface radiation is linearised at each Newton iteration using
+        h<sub>rad</sub> = 4σεT³. Combined convection + radiation flux is assembled
+        directly into the sparse matrix at j = Nz−1, avoiding separate radiation iteration.
+        Converges in 4–6 Newton steps to 10⁻⁴ °C.</p>
+      </div>
+      <div class="card">
+        <h3>Sparse Linear System</h3>
+        <p>Assembled as a SciPy
+        <code style="font-family:'IBM Plex Mono',monospace;color:var(--accent);font-size:0.78rem">lil_matrix</code>
+        converted to CSR and solved with
+        <code style="font-family:'IBM Plex Mono',monospace;color:var(--accent);font-size:0.78rem">spsolve</code>.
+        Typical DOF: ~90,000.</p>
+      </div>
+      <div class="card">
+        <h3>Anisotropic Graphite</h3>
+        <p>k<sub>r</sub> = 1500 W/m·K (in-plane) vs k<sub>z</sub> = 2 W/m·K (through-plane)
+        — a 750× anisotropy ratio. Heat spreads radially at near-isothermal conditions
+        before conducting axially into adhesive and glass.</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top:2rem;margin-bottom:0.6rem">Top Surface BC — Newton Linearisation</h3>
+    <pre><span class="cm"># Radiation linearised as h_rad = 4σεT³ at previous Newton iterate</span>
+<span class="var">T0_K</span>   = T_prev[-1, i] + 273.15
+<span class="var">q_rad0</span> = σ · ε · (T0_K⁴ − Ts_K⁴)
+<span class="var">h_rad</span>  = 4 · σ · ε · T0_K³
+
+<span class="cm"># Matrix row at (Nz-1, i) — combined conv + rad flux balance:</span>
+A[n, Nz-2] =  kzc / dz
+A[n, Nz-1] = -(kzc / dz + h_conv + h_rad)
+b[n]        = -(h_conv · T_amb + h_rad · T0_C − q_rad0)</pre>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section id="results">
+  <div class="container">
+    <div class="section-label">04 — Results</div>
+    <h2>Spreader Thickness Parametric Study</h2>
+    <p>Peak temperature vs spreader thickness for Graphite and Copper spreaders, computed
+    by the FDM solver. FLOEFD cross-check points shown at t = 0.1, 0.4, and 1.0 mm.
+    Data from <em>Heat_Spreader.xlsx</em>.</p>
+
+    <div class="chart-wrap">
+      <div class="chart-title">T_max [°C] vs Spreader Thickness [mm] — Graphite vs Copper</div>
+      <div class="chart-container">
+        <canvas id="mainChart"></canvas>
+      </div>
+      <div class="legend-row">
+        <div class="legend-item"><div class="legend-dot" style="background:#0077cc"></div>FDM — Graphite (Gr)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d45f00"></div>FDM — Copper (Cu)</div>
+        <div class="legend-item"><div class="legend-sq"  style="background:#1a8c00"></div>FLOEFD — Graphite (Gr)</div>
+        <div class="legend-item"><div class="legend-sq"  style="background:#8b0099"></div>FLOEFD — Copper (Cu)</div>
+      </div>
+    </div>
+
+    <div class="card-grid" style="margin-top:2rem">
+      <div class="card">
+        <h3>Key Observations</h3>
+        <p>Graphite outperforms Copper below ~0.75 mm thickness due to its exceptionally
+        high in-plane conductivity (1500 vs 400 W/m·K). Above ~0.75 mm, Copper's isotropic
+        conductivity provides better through-plane transport and the curves cross over.</p>
+        <p>Both materials show diminishing returns above 0.4 mm — the glass layer
+        thermal resistance becomes the bottleneck beyond this point.</p>
+      </div>
+      <div class="card">
+        <h3>Temperature Probes (t = 0.1 mm Gr)</h3>
+        <table class="param-table">
+          <tr><th>Location</th><th>T [°C]</th></tr>
+          <tr><td>Source max (z = 0)</td><td>97.8</td></tr>
+          <tr><td>Graphite top, center</td><td>~94</td></tr>
+          <tr><td>Glass back, center</td><td>~72</td></tr>
+          <tr><td>Glass back, spreader edge</td><td>~50</td></tr>
+          <tr><td>Glass back, outer edge</td><td>~44</td></tr>
+          <tr><td>Ambient</td><td>25.0</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <h3 style="margin-top:2.5rem;margin-bottom:0.7rem">Energy Balance (t = 0.1 mm Gr)</h3>
+    <p style="font-size:0.84rem;color:var(--muted);margin-bottom:1rem">
+      Verified against Q<sub>in</sub> = 6 W. Convection and radiation split at the glass back surface.
+    </p>
+    <div>
+      <div class="energy-row">
+        <div class="energy-label">Q<sub>convection</sub></div>
+        <div class="energy-bar-wrap"><div class="energy-bar" style="width:54%;background:var(--accent)"></div></div>
+        <div class="energy-val">~3.24 W (54%)</div>
+      </div>
+      <div class="energy-row">
+        <div class="energy-label">Q<sub>radiation</sub></div>
+        <div class="energy-bar-wrap"><div class="energy-bar" style="width:46%;background:var(--accent3)"></div></div>
+        <div class="energy-val">~2.76 W (46%)</div>
+      </div>
+      <div class="energy-row">
+        <div class="energy-label">Q<sub>error</sub></div>
+        <div class="energy-bar-wrap"><div class="energy-bar" style="width:1%;background:var(--accent2)"></div></div>
+        <div class="energy-val" style="color:var(--accent2)">&lt; 0.5%</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- VALIDATION -->
+<section id="validation">
+  <div class="container">
+    <div class="section-label">05 — Validation</div>
+    <h2>FDM vs FLOEFD Agreement</h2>
+    <p>Three thickness points cross-checked against Siemens FLOEFD thermal simulation
+    (conduction + natural convection + radiation on glass back surface only).
+    FLOEFD run as a half-symmetry model (180°, 3 W) — thermally equivalent to full 360°/6 W.
+    Error computed on ΔT above ambient basis.</p>
+
+    <table class="val-table">
+      <thead>
+        <tr>
+          <th>Thickness</th>
+          <th>Material</th>
+          <th>FDM T<sub>max</sub> [°C]</th>
+          <th>FLOEFD T<sub>max</sub> [°C]</th>
+          <th>ΔT Error</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="num">0.1 mm</td><td>Graphite</td>
+          <td class="num">97.80</td><td class="num">98.06</td>
+          <td class="num ok">0.4%</td>
+          <td><span class="badge badge-green">PASS</span></td>
+        </tr>
+        <tr>
+          <td class="num">0.1 mm</td><td>Copper</td>
+          <td class="num">126.48</td><td class="num">128.07</td>
+          <td class="num ok">1.6%</td>
+          <td><span class="badge badge-green">PASS</span></td>
+        </tr>
+        <tr>
+          <td class="num">0.4 mm</td><td>Graphite</td>
+          <td class="num">91.76</td><td class="num">91.64</td>
+          <td class="num ok">0.2%</td>
+          <td><span class="badge badge-green">PASS</span></td>
+        </tr>
+        <tr>
+          <td class="num">0.4 mm</td><td>Copper</td>
+          <td class="num">96.26</td><td class="num">95.80</td>
+          <td class="num ok">0.7%</td>
+          <td><span class="badge badge-green">PASS</span></td>
+        </tr>
+        <tr>
+          <td class="num">1.0 mm</td><td>Graphite</td>
+          <td class="num">92.02</td><td class="num">92.05</td>
+          <td class="num ok">0.04%</td>
+          <td><span class="badge badge-green">PASS</span></td>
+        </tr>
+        <tr>
+          <td class="num">1.0 mm</td><td>Copper</td>
+          <td class="num">89.96</td><td class="num">89.52</td>
+          <td class="num ok">0.6%</td>
+          <td><span class="badge badge-green">PASS</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="card-grid" style="margin-top:2rem">
+      <div class="card">
+        <h3>GL Outer Edge (t = 0.1 mm Gr)</h3>
+        <table class="param-table">
+          <tr><th></th><th>Temp [°C]</th><th>ΔT above amb</th></tr>
+          <tr><td>FDM</td><td>~44.0</td><td>~19.0 K</td></tr>
+          <tr><td>FLOEFD</td><td>44.60</td><td>19.60 K</td></tr>
+          <tr><td style="color:var(--accent2)">Error</td><td style="color:var(--accent2)">~0.6°C</td><td style="color:var(--accent2)">&lt;3%</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h3>Residual Difference Sources</h3>
+        <p style="font-size:0.83rem">Remaining sub-2% agreement is consistent with differences in solver approach:</p>
+        <ul style="font-size:0.83rem;color:var(--muted);padding-left:1.2rem;line-height:2">
+          <li>FDM uses uniform h = 10 W/m²K; FLOEFD computes local variation</li>
+          <li>Harmonic-mean interface conductivity vs FLOEFD volumetric interpolation</li>
+          <li>Grid resolution at the 5 mm source boundary flux step</li>
+          <li>FDM axisymmetric vs FLOEFD half-symmetry cut plane treatment</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DOWNLOADS -->
+<section id="downloads">
+  <div class="container">
+    <div class="section-label">06 — Downloads</div>
+    <h2>Study Files</h2>
+    <p>All source files used in this study are available for download.</p>
+
+    <div class="dl-bar">
+      <span class="dl-bar-label">thermal_fdm_axisymmetric_Gr.py</span>
+      <span style="font-size:0.75rem;color:var(--muted)">Python · FDM solver — Graphite spreader</span>
+      <a href="thermal_fdm_axisymmetric_Gr.py" download class="btn btn-primary" style="margin-left:auto">Download</a>
+    </div>
+    <div class="dl-bar">
+      <span class="dl-bar-label">thermal_fdm_axisymmetric_Cu.py</span>
+      <span style="font-size:0.75rem;color:var(--muted)">Python · FDM solver — Copper spreader</span>
+      <a href="thermal_fdm_axisymmetric_Cu.py" download class="btn btn-primary" style="margin-left:auto">Download</a>
+    </div>
+    <div class="dl-bar">
+      <span class="dl-bar-label">Heat_Spreader.xlsx</span>
+      <span style="font-size:0.75rem;color:var(--muted)">Excel · Parametric study data · FDM + FLOEFD points</span>
+      <a href="Heat_Spreader.xlsx" download class="btn btn-primary" style="margin-left:auto">Download</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>Graphite vs Copper Heat Spreader — Axisymmetric FDM Thermal Study</p>
+    <p style="margin-top:0.35rem;font-size:0.62rem">
+      Python code verified with Siemens FLOEFD
+    </p>
+  </div>
+</footer>
+
+<script>
+// ── UPDATED DATA — Sheet 1 (corrected) ───────────────────────────────────────
+const thickness = [0.01, 0.02, 0.03, 0.05, 0.075, 0.1, 0.2, 0.4, 0.5, 0.75, 1.0, 2.0, 3.0, 4.0, 5.0];
+const tGrFDM   = [159.79, 131.81, 119.18, 107.45, 101.05, 97.80, 93.28, 91.76, 91.65, 91.74, 92.02, 93.53, 95.33, 97.30, 99.40];
+const tCuFDM   = [295.33, 230.42, 195.92, 160.11, 138.46, 126.48, 106.86, 96.26, 94.14, 91.31, 89.96, 88.35, 88.28, 88.61, 89.11];
+const tGrEFD   = [null, null, null, null, null, 98.06, null, 91.64, null, null, 92.05, null, null, null, null];
+const tCuEFD   = [null, null, null, null, null, 128.07, null, 95.80, null, null, 89.52, null, null, null, null];
+
+Chart.defaults.color = '#5a6478';
+Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+Chart.defaults.font.size = 11;
+
+new Chart(document.getElementById('mainChart').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: thickness,
+    datasets: [
+      {
+        label: 'FDM — Graphite',
+        data: tGrFDM,
+        borderColor: '#0077cc',
+        backgroundColor: 'rgba(0,119,204,0.07)',
+        borderWidth: 2.2,
+        pointRadius: 3,
+        pointBackgroundColor: '#0077cc',
+        tension: 0.3,
+        fill: false,
+      },
+      {
+        label: 'FDM — Copper',
+        data: tCuFDM,
+        borderColor: '#d45f00',
+        backgroundColor: 'rgba(212,95,0,0.07)',
+        borderWidth: 2.2,
+        pointRadius: 3,
+        pointBackgroundColor: '#d45f00',
+        tension: 0.3,
+        fill: false,
+      },
+      {
+        label: 'FLOEFD — Graphite',
+        data: tGrEFD,
+        borderColor: '#1a8c00',
+        backgroundColor: '#1a8c00',
+        borderWidth: 0,
+        pointRadius: 9,
+        pointStyle: 'rectRot',
+        pointBackgroundColor: '#1a8c00',
+        showLine: false,
+      },
+      {
+        label: 'FLOEFD — Copper',
+        data: tCuEFD,
+        borderColor: '#8b0099',
+        backgroundColor: '#8b0099',
+        borderWidth: 0,
+        pointRadius: 9,
+        pointStyle: 'rectRot',
+        pointBackgroundColor: '#8b0099',
+        showLine: false,
+      },
+    ],
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#ffffff',
+        borderColor: '#d0d5de',
+        borderWidth: 1,
+        titleColor: '#0077cc',
+        bodyColor: '#1a2030',
+        callbacks: {
+          title: ctx => `Thickness: ${ctx[0].label} mm`,
+          label: ctx => ctx.raw != null ? ` ${ctx.dataset.label}: ${ctx.raw}°C` : null,
+        }
+      }
+    },
+    scales: {
+      x: {
+        type: 'logarithmic',
+        title: { display: true, text: 'Spreader Thickness [mm]', color: '#5a6478' },
+        grid: { color: 'rgba(0,0,0,0.06)' },
+        ticks: { color: '#5a6478' },
+      },
+      y: {
+        title: { display: true, text: 'T_max [°C]', color: '#5a6478' },
+        grid: { color: 'rgba(0,0,0,0.06)' },
+        ticks: { color: '#5a6478' },
+        min: 80,
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>
